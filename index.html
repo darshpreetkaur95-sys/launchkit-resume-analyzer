@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Launchkit – Resume Analyzer</title>
+<meta name="description" content="Upload a resume, pick a role, and get a practical interview plan.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#eef3f2;--card:#fff;--ink:#12202b;--mut:#587080;--line:#d5e0df;--ac:#0f766e;--acs:#d9f0ec;--warn:#b45309;--warns:#fdecd3}
+@media(prefers-color-scheme:dark){:root{--bg:#0d1719;--card:#132226;--ink:#e6f0ef;--mut:#8fa9b0;--line:#24393e;--ac:#3fd0bf;--acs:#173a38;--warn:#fbbf6b;--warns:#3a2c14}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 "IBM Plex Sans",system-ui,sans-serif}
+main{max-width:720px;margin:0 auto;padding:28px 18px 60px}
+h1,h2,h3{font-family:"Bricolage Grotesque",system-ui,sans-serif;line-height:1.2;margin:0}
+h1{font-size:1.5rem}h2{font-size:1.9rem;margin-bottom:6px}h3{font-size:1.1rem;margin:22px 0 8px}
+header{display:flex;align-items:center;gap:12px;margin-bottom:22px}
+.logo{width:38px;height:38px;border-radius:10px;background:var(--ac);color:var(--bg);display:grid;place-items:center;font:700 1.2rem "Bricolage Grotesque",sans-serif}
+header small{color:var(--mut);display:block;line-height:1.2}
+nav{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:22px}
+nav button{border:0;border-top:4px solid var(--line);background:none;color:var(--mut);padding:8px 0 0;text-align:left;font:inherit;font-size:.85rem;cursor:default}
+nav button.on{border-color:var(--ac);color:var(--ink);font-weight:600}
+nav button.done{border-color:var(--ac);cursor:pointer}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:22px}
+p.lead{color:var(--mut);margin:0 0 18px}
+label.drop{display:block;border:2px dashed var(--line);border-radius:12px;padding:26px 14px;text-align:center;cursor:pointer;color:var(--mut)}
+label.drop:hover,label.drop:focus-within{border-color:var(--ac)}
+label.drop b{display:block;color:var(--ink)}
+textarea,input[type=text]{width:100%;font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+textarea{min-height:140px;resize:vertical}
+:focus-visible{outline:3px solid var(--ac);outline-offset:2px}
+.row{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px;align-items:center}
+button.btn{font:inherit;font-weight:600;border-radius:10px;padding:10px 18px;border:1px solid var(--ac);background:var(--ac);color:var(--bg);cursor:pointer}
+button.btn.ghost{background:none;color:var(--ink);border-color:var(--line)}
+button.btn:disabled{opacity:.45;cursor:not-allowed}
+.msg{font-size:.9rem;color:var(--mut);margin:10px 0 0}.msg.err{color:var(--warn)}
+.roles{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+.roles button{font:inherit;text-align:left;padding:14px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--ink);cursor:pointer}
+.roles button.on{border-color:var(--ac);background:var(--acs);font-weight:600}
+.score{display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+.ring{--p:0;width:112px;height:112px;border-radius:50%;background:conic-gradient(var(--ac) calc(var(--p)*1%),var(--line) 0);display:grid;place-items:center}
+.ring span{width:88px;height:88px;border-radius:50%;background:var(--card);display:grid;place-items:center;font:700 1.7rem "Bricolage Grotesque",sans-serif}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{padding:4px 12px;border-radius:99px;font-size:.88rem;background:var(--acs);color:var(--ink)}
+.chip.miss{background:var(--warns)}
+.chip.miss::before{content:"Missing: ";color:var(--warn);font-weight:600}
+ul.chk{list-style:none;padding:0;margin:0}
+ul.chk li{padding:6px 0 6px 28px;position:relative;border-bottom:1px solid var(--line)}
+ul.chk li::before{content:"✓";position:absolute;left:0;color:var(--ac);font-weight:700}
+ul.chk li.no::before{content:"!";color:var(--warn)}
+ol.plan{padding-left:20px;margin:0}ol.plan li{margin-bottom:8px}
+@media(prefers-reduced-motion:no-preference){.card{animation:in .25s ease-out}@keyframes in{from{opacity:0}to{opacity:1}}}
+</style>
+</head>
+<body>
+<main>
+<header><div class="logo">L</div><div><h1>Launchkit</h1><small>Resume analyzer</small></div></header>
+<nav id="nav"></nav>
+<div id="view"></div>
+<p class="msg" style="margin-top:20px">Your resume is read inside your browser and is never uploaded anywhere. The analysis is keyword based, so treat it as a checklist, not a verdict.</p>
+</main>
+<script>
+const ROLES={
+"Full Stack Developer":["html","css","javascript","react","node.js|nodejs","express","sql|mysql|postgresql","mongodb","git","rest|api","typescript","docker"],
+"Frontend Developer":["html","css","javascript","react","typescript","responsive","git","tailwind|bootstrap","accessibility","testing|jest","figma","performance"],
+"Backend Developer":["node.js|nodejs","python|java","rest|api","sql|mysql|postgresql","mongodb","authentication|jwt","docker","git","redis","microservices","testing","linux"],
+"Cloud / DevOps Engineer":["aws","azure","gcp|google cloud","docker","kubernetes","linux","terraform","ci/cd|jenkins|github actions","git","python","networking","monitoring"],
+"Data Analyst":["sql","excel","python","pandas","power bi|tableau","statistics","visualization|visualisation","data cleaning","numpy","dashboard","reporting","a/b testing"],
+"ML / AI Engineer":["python","machine learning","deep learning","tensorflow|pytorch","numpy","pandas","scikit-learn|sklearn","nlp","generative ai|llm","sql","git","statistics"]};
+const ALL=[...new Set(Object.values(ROLES).flat())];
+const QS={
+"Full Stack Developer":["Walk me through how a request travels from the browser to the database and back.","How do you keep a React app fast as it grows?","Explain SQL vs NoSQL and when you would pick each."],
+"Frontend Developer":["What happens when you type a URL and press Enter?","How do you make a page accessible?","Explain state vs props in React."],
+"Backend Developer":["How would you design a REST API for a to-do app?","How do you secure login with tokens?","What is an index in a database and why does it help?"],
+"Cloud / DevOps Engineer":["Explain the difference between a VM and a container.","What is a CI/CD pipeline? Describe one you built.","How would you make a service highly available?"],
+"Data Analyst":["How do you handle missing values in a dataset?","Write a SQL query to find the top 3 products by revenue.","How would you explain a chart to a non-technical manager?"],
+"ML / AI Engineer":["What is overfitting and how do you prevent it?","Explain precision vs recall with an example.","How would you evaluate a generative AI feature?"]};
+const SAMPLE=`Darsh Sharma
+darsh@example.com | +91 98765 43210 | github.com/darsh | linkedin.com/in/darsh
+
+Education
+B.Tech Computer Science, 2023-2027
+
+Skills
+HTML, CSS, JavaScript, React, Python, SQL, MySQL, Git, Node.js
+
+Projects
+Weather Meter - built a weather web app using JavaScript and REST APIs, used by 200+ students.
+Portfolio Website - designed a responsive site with HTML, CSS and JavaScript, improved load time by 40%.
+
+Internship
+Web Development Intern - developed 5 pages in React and deployed them using GitHub Pages.`;
+const S={step:0,resume:"",company:"",jd:"",role:"",msg:""};
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const has=(t,k)=>k.split("|").some(a=>new RegExp("(?<![a-z0-9])"+a.replace(/[.*+?^${}()|[\]\\\/]/g,"\\$&")+"(?![a-z0-9])").test(t));
+const label=k=>k.split("|")[0];
+const loadScript=u=>new Promise((res,rej)=>{const s=document.createElement("script");s.src=u;s.onload=res;s.onerror=rej;document.head.appendChild(s)});
+
+async function readFile(f){
+  const n=f.name.toLowerCase();
+  if(f.size>20*1024*1024)throw new Error("File is bigger than 20 MB.");
+  if(n.endsWith(".txt"))return f.text();
+  if(n.endsWith(".pdf")){
+    if(!window.pdfjsLib){await loadScript("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js");
+      pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";}
+    const pdf=await pdfjsLib.getDocument({data:await f.arrayBuffer()}).promise;let out="";
+    for(let i=1;i<=pdf.numPages;i++){const p=await pdf.getPage(i);out+=(await p.getTextContent()).items.map(x=>x.str).join(" ")+"\n"}
+    return out;
+  }
+  if(n.endsWith(".docx")){
+    if(!window.mammoth)await loadScript("https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js");
+    return (await mammoth.extractRawText({arrayBuffer:await f.arrayBuffer()})).value;
+  }
+  throw new Error("Please use a PDF, DOCX or TXT file (old .doc files are not supported).");
+}
+
+function analyze(){
+  const t=S.resume.toLowerCase(),jd=S.jd.toLowerCase();
+  const base=ROLES[S.role];
+  const extra=jd?ALL.filter(k=>!base.includes(k)&&has(jd,k)):[];
+  const target=[...base,...extra];
+  const found=target.filter(k=>has(t,k)),missing=target.filter(k=>!has(t,k));
+  const words=(t.match(/\S+/g)||[]).length;
+  const verbs=["built","developed","designed","implemented","led","created","optimized","optimised","deployed","reduced","improved","automated","launched"].filter(v=>t.includes(v)).length;
+  const checks=[
+    [/[\w.+-]+@[\w-]+\.[\w.]+/.test(t),"Email address is present","Add a professional email address"],
+    [/github|linkedin/.test(t),"Profile links (GitHub / LinkedIn) are present","Add your GitHub and LinkedIn links"],
+    [/education|b\.?tech|bachelor/.test(t),"Education section found","Add an Education section"],
+    [/project/.test(t),"Projects section found","Add a Projects section with 2 or 3 projects"],
+    [/skills/.test(t),"Skills section found","Add a clear Skills section"],
+    [/intern|experience|training/.test(t),"Experience or internship found","Add an internship, training or freelance work if you have any"],
+    [verbs>=3,"Uses action verbs (built, developed, designed)","Start bullet points with action verbs like built, designed, deployed"],
+    [(t.match(/\d+\s?(%|\+|k\b|users|students|ms)/g)||[]).length>=2,"Shows numbers and results","Add numbers to show impact, for example 'reduced load time by 40%'"],
+    [words>=150&&words<=900,"Length looks right ("+words+" words)","Length is "+words+" words. Aim for 200 to 700 for a fresher resume"]];
+  const pass=checks.filter(c=>c[0]).length;
+  const score=Math.round(70*found.length/target.length+30*pass/checks.length);
+  return{target,found,missing,checks,score};
+}
+
+function render(){
+  const names=["Resume","Company","Role","Your plan"];
+  $("nav").innerHTML=names.map((n,i)=>`<button class="${i===S.step?"on":i<S.step?"done":""}" ${i<S.step?`onclick="go(${i})"`:"disabled"}>${i+1}. ${n}</button>`).join("");
+  const v=$("view");
+  if(S.step===0){
+    v.innerHTML=`<div class="card"><h2>Start with your resume</h2><p class="lead">Add the resume you want to improve. It becomes the starting point for your plan.</p>
+    <label class="drop"><b>Choose a resume file</b>PDF, DOCX or TXT, up to 20 MB<input id="file" type="file" accept=".pdf,.docx,.txt" hidden></label>
+    <p class="msg" style="margin:14px 0 6px">Or paste the text of your resume:</p>
+    <textarea id="paste" placeholder="Paste resume text here">${esc(S.resume)}</textarea>
+    <p id="msg" class="msg ${S.msg.startsWith("Could")?"err":""}">${esc(S.msg)}</p>
+    <div class="row"><button class="btn" id="next0">Continue to company</button><button class="btn ghost" id="sample">Use a sample resume</button></div></div>`;
+    const upd=()=>{$("next0").disabled=S.resume.trim().length<50};upd();
+    $("paste").oninput=e=>{S.resume=e.target.value;S.msg="";upd()};
+    $("sample").onclick=()=>{S.resume=SAMPLE;S.msg="Sample resume loaded.";render()};
+    $("next0").onclick=()=>go(1);
+    $("file").onchange=async e=>{const f=e.target.files[0];if(!f)return;$("msg").textContent="Reading "+f.name+"...";
+      try{S.resume=await readFile(f);S.msg=S.resume.trim().length<50?"Could not find text in this file. If it is a scanned image, paste the text instead.":"Loaded "+f.name+".";}
+      catch(err){S.msg="Could not read the file. "+err.message}render()};
+  }
+  if(S.step===1){
+    v.innerHTML=`<div class="card"><h2>Which company?</h2><p class="lead">Add the company name. If you have the job description, paste it and we will check your resume against it too.</p>
+    <input type="text" id="co" placeholder="Company name, for example Infosys" value="${esc(S.company)}">
+    <p class="msg" style="margin:14px 0 6px">Job description (optional):</p>
+    <textarea id="jd" placeholder="Paste the job description here">${esc(S.jd)}</textarea>
+    <div class="row"><button class="btn ghost" onclick="go(0)">Back</button><button class="btn" id="next1">Continue to role</button></div></div>`;
+    $("co").oninput=e=>S.company=e.target.value;$("jd").oninput=e=>S.jd=e.target.value;$("next1").onclick=()=>go(2);
+  }
+  if(S.step===2){
+    v.innerHTML=`<div class="card"><h2>Which role are you aiming for?</h2><p class="lead">Pick the closest match. We compare your resume with the skills this role usually asks for.</p>
+    <div class="roles">${Object.keys(ROLES).map(r=>`<button class="${r===S.role?"on":""}" data-r="${esc(r)}">${esc(r)}</button>`).join("")}</div>
+    <div class="row"><button class="btn ghost" onclick="go(1)">Back</button><button class="btn" id="next2" ${S.role?"":"disabled"}>Build my plan</button></div></div>`;
+    document.querySelectorAll(".roles button").forEach(b=>b.onclick=()=>{S.role=b.dataset.r;render()});
+    $("next2").onclick=()=>go(3);
+  }
+  if(S.step===3){
+    const a=analyze(),co=S.company.trim()||"the company",top=a.missing.slice(0,3).map(label);
+    v.innerHTML=`<div class="card"><h2>Your plan for ${esc(S.role)}</h2><p class="lead">Target: ${esc(co)}</p>
+    <div class="score"><div class="ring" style="--p:${a.score}"><span>${a.score}%</span></div>
+    <p style="margin:0;flex:1;min-width:200px">${a.score>=75?"Strong match. Polish the details and start practising.":a.score>=50?"Decent start. A few gaps to close before you apply.":"Early stage. Focus on the missing skills and the resume fixes below."}</p></div>
+    <h3>Skills for this role</h3><div class="chips">${a.found.map(k=>`<span class="chip">${esc(label(k))}</span>`).join("")}${a.missing.map(k=>`<span class="chip miss">${esc(label(k))}</span>`).join("")}</div>
+    <h3>Resume checklist</h3><ul class="chk">${a.checks.map(c=>`<li class="${c[0]?"":"no"}">${esc(c[0]?c[1]:c[2])}</li>`).join("")}</ul>
+    <h3>7-day game plan</h3><ol class="plan">
+    <li><b>Day 1:</b> Fix the resume items marked with "!" above.</li>
+    <li><b>Days 2 to 3:</b> ${top.length?"Learn the basics of "+esc(top.join(", "))+" and add one small project that uses them.":"Add one more project that shows results with numbers."}</li>
+    <li><b>Day 4:</b> Revise core subjects: data structures, DBMS, OS and networks.</li>
+    <li><b>Day 5:</b> Answer the practice questions below out loud.</li>
+    <li><b>Day 6:</b> Research ${esc(co)}: its products, recent news and tech stack. Prepare two questions to ask them.</li>
+    <li><b>Day 7:</b> Do a mock interview with a friend and revise your resume once more.</li></ol>
+    <h3>Practice questions</h3><ol class="plan">${QS[S.role].concat(["Tell me about yourself in one minute.","Explain your best project and one problem you solved in it."]).map(q=>`<li>${esc(q)}</li>`).join("")}</ol>
+    <div class="row"><button class="btn ghost" onclick="go(2)">Change role</button><button class="btn ghost" onclick="window.print()">Print or save as PDF</button><button class="btn" onclick="restart()">Start over</button></div></div>`;
+  }
+  window.scrollTo(0,0);
+}
+function go(n){S.step=n;render()}
+function restart(){Object.assign(S,{step:0,resume:"",company:"",jd:"",role:"",msg:""});render()}
+render();
+</script>
+</body>
+</html>
